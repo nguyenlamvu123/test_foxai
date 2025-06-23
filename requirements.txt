@@ -1,0 +1,7 @@
+opencv-python-headless
+gradio
+#tabula-py
+#torch
+#torchvision
+#pillow
+#craft-text-detector
