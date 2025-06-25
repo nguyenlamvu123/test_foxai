@@ -13,4 +13,9 @@ https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error
 
     python3 grad.py   
 
+
+#### API (có file postman để test trong source)  
+    python3 api_be.py 
+
+
 phần cắt bảng đã chạy khá ổn với file `3.png` (có trong source), cần cải thiện kết quả đọc text; lưu file json được trả ra vào local
