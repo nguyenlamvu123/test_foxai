@@ -1,6 +1,38 @@
 import gradio as gr
 from coordinate import *
 
+
+def get_download_table():
+    files = list_image_filenames()
+    table = []
+    for path in files:
+        download_link = f'<a href="./{path}" download>{path}</a>'
+        table.append([path, download_link])
+    return table
+
+# Khi người dùng nhấn vào ảnh gallery, truyền ảnh sang ô "selected"
+def handle_selection(evt: gr.SelectData):
+    # evt.value là ảnh (NumPy RGB) nếu ảnh trong Gallery là dạng mảng
+    if evt.value is None:
+        return None  # tránh lỗi nếu không có ảnh
+    path = evt.value['image']['path']
+    img_out = cv2.imread(path)
+    img_rgb = cv2.cvtColor(img_out, cv2.COLOR_BGR2RGB)
+    return img_rgb
+
+# Sự kiện xử lý đầu vào
+def run_pipeline(img, th1, th2):
+    img = cv2.imread(img, flags=0)
+    findcoord(img, th1, th2)
+
+    # output_images = []
+    # for file in os.listdir():
+    #     if file.endswith(extout) and file.startswith(imgout):
+    #         img_out = cv2.imread(file)
+    #         img_rgb = cv2.cvtColor(img_out, cv2.COLOR_BGR2RGB)
+    #         output_images.append(img_rgb)
+    # return output_images
+
 with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
@@ -27,34 +59,11 @@ with gr.Blocks() as demo:
         text_out = gr.Textbox(label="Kết quả tóm tắt")
         json_out = gr.JSON(label="Kết quả chi tiết")
 
-    # Sự kiện xử lý đầu vào
-    def run_pipeline(img, th1, th2):
-        img = cv2.imread(img, flags=0)
-        findcoord(img, th1, th2)
-
-        # output_images = []
-        # for file in os.listdir():
-        #     if file.endswith(extout) and file.startswith(imgout):
-        #         img_out = cv2.imread(file)
-        #         img_rgb = cv2.cvtColor(img_out, cv2.COLOR_BGR2RGB)
-        #         output_images.append(img_rgb)
-        # return output_images
-
     process_btn.click(
         fn=run_pipeline,
         inputs=(input_img, th1, th2),
         # outputs=output_images
         )
-
-    # Khi người dùng nhấn vào ảnh gallery, truyền ảnh sang ô "selected"
-    def handle_selection(evt: gr.SelectData):
-        # evt.value là ảnh (NumPy RGB) nếu ảnh trong Gallery là dạng mảng
-        if evt.value is None:
-            return None  # tránh lỗi nếu không có ảnh
-        path = evt.value['image']['path']
-        img_out = cv2.imread(path)
-        img_rgb = cv2.cvtColor(img_out, cv2.COLOR_BGR2RGB)
-        return img_rgb
 
     checkbox.change(fn=show_selected_images, inputs=checkbox, outputs=image_gallery)
     # output_images.select(fn=handle_selection, inputs=None, outputs=selected)

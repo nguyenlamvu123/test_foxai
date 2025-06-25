@@ -1,6 +1,4 @@
-# tesseract is required, install it as below
-# https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
-import os, cv2  # , tabula
+import os, json, cv2, datetime  # , tabula
 import pytesseract
 import numpy as np
 
@@ -126,7 +124,7 @@ def findcoord_v0(img):  # dùng cv2_inRange() rồi căn cứ vào contour có 4
         img
     )
 
-def findcoord(img, th1, th2):
+def findcoord(img, th1, th2, api=False):
     height, width = img.shape
     img2readtext = img.copy()
     img_blur = cv2.GaussianBlur(img, (3, 3), 0)
@@ -153,7 +151,7 @@ def findcoord(img, th1, th2):
     cnts = cv2.findContours(image=bi_i, mode=cv2.RETR_TREE, method=cv2.CHAIN_APPROX_SIMPLE)
     contours = cnts[0] if len(cnts) == 2 else cnts[1]
 
-    output_images = list()
+    filenames = list()
     lim = height * width / 3
     for i, cnt in enumerate(contours):
         curr = cv2.contourArea(cnt)
@@ -162,8 +160,12 @@ def findcoord(img, th1, th2):
         x, y, w, h = cv2.boundingRect(cnt)  # Lấy tọa độ khung chữ nhật quanh contour
         cropped = img[y:y + h, x:x + w]  # Cắt ảnh theo vùng đó
         img2readtext[y:y+h, x:x+w] = 0
-        cv2.imwrite(f"{imgout}{i}{extout}", cropped)
+        imgname = f"{imgout}{i}{extout}"
+        filenames.append(imgname)
+        cv2.imwrite(imgname, cropped)
     cv2.imwrite(tempimg, img2readtext)
+    if api:
+        analyze_images(filenames)
     if debug:
         combined = cv2.add(image_horizontal, image_vertical)
         cv2.drawContours(
@@ -174,7 +176,6 @@ def findcoord(img, th1, th2):
             1
         )
         print()
-    # return output_images
 
 def list_image_filenames():
     return [file for file in os.listdir() if file.endswith(extout) and file.startswith(imgout)]
@@ -182,7 +183,9 @@ def list_image_filenames():
 # Đọc ảnh từ tên file
 def load_image(filename):
     img = cv2.imread(filename)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img_rgb_ = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    # img_rgb = cv2.GaussianBlur(img_rgb_, (3, 3), 0)
+    img_rgb = cv2.convertScaleAbs(img_rgb_, alpha=1.5, beta=0)
     return img_rgb
 
 # Hiển thị preview các ảnh đã chọn
@@ -191,18 +194,22 @@ def show_selected_images(filenames):  # TODO improve
     return images
 
 def analyze_images(filenames):
-    img_cv = cv2.imread(tempimg)
-    img2readtext = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
-    freetext = pytesseract.image_to_string(img2readtext)  # TODO tùy chọn ngôn ngữ cho tesseract
+    img2readtext = load_image(tempimg)
+    freetext = pytesseract.image_to_string(img2readtext, lang='vie')
     textintable = ''
     for f in filenames:
         img = load_image(f)
-        textintable = f"{pytesseract.image_to_string(img)}\n{textintable}"  # TODO tùy chọn ngôn ngữ cho tesseract 
+        textintable = f"{pytesseract.image_to_string(img, lang='vie')}\n{textintable}"
     jso = {
         'text in table': textintable,
         'free text': freetext,
     }
     text = f"Đã phân tích {len(filenames)} ảnh."
+
+    now = datetime.datetime.now()
+    fn = now.strftime("%Y%m%d_%H%M%S")
+    with open(f"{fn}.csv", "w", encoding="utf-8") as f:
+        json.dump(jso, f, ensure_ascii=False, indent=4)
     # TODO xóa các file tạm
     return text, jso
 
@@ -219,10 +226,13 @@ def analyze_images(filenames):
 #     # Lưu bảng thành file CSV nếu muốn
 #     tabula.convert_into(pdf_file, "output.csv", output_format="csv", pages='all')
 
+def list_documents():
+    return [c for c in os.listdir() if c.endswith('.csv')]
+
 if __name__ == '__main__':
     img = cv2.imread(
         'test_foxai.jpg',  # '3.png',  #
         flags=0
     )
-    findcoord(img)
+    findcoord(img, 0, 10)
     # findtable()
