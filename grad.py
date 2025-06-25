@@ -13,7 +13,7 @@ with gr.Blocks() as demo:
     # with gr.Row():
     #     output_images = gr.Gallery(label="Kết quả xử lý", show_label=True, columns=3)
 
-    with gr.Row():
+    with gr.Row():  # TODO không tự update
         checkbox = gr.CheckboxGroup(
             label="Chọn các ảnh muốn xử lý",
             choices=list_image_filenames()
