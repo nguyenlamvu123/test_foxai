@@ -5,3 +5,4 @@ gradio
 #torchvision
 #pillow
 #craft-text-detector
+pytesseract
