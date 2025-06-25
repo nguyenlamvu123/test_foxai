@@ -166,6 +166,29 @@ def findcoord(img, th1, th2):
         print()
     # return output_images
 
+def list_image_filenames():
+    return [file for file in os.listdir() if file.endswith(extout) and file.startswith(imgout)]
+
+# Đọc ảnh từ tên file
+def load_image(filename):
+    img = cv2.imread(filename)
+    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    return img_rgb
+
+# Hiển thị preview các ảnh đã chọn
+def show_selected_images(filenames):
+    images = [load_image(f) for f in filenames]
+    return images
+
+def analyze_images(filenames):
+    results = []
+    for f in filenames:
+        img = load_image(f)
+        h, w, _ = img.shape
+        results.append({"filename": f, "width": w, "height": h})
+    text = f"Đã phân tích {len(filenames)} ảnh."
+    return text, results
+
 # def findtable():
 #     # Đọc và trích xuất bảng từ PDF
 #     pdf_file = "3.pdf"
