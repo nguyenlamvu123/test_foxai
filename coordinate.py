@@ -1,11 +1,14 @@
+# tesseract is required, install it as below
+# https://stackoverflow.com/questions/50951955/pytesseract-tesseractnotfound-error-tesseract-is-not-installed-or-its-not-i
 import os, cv2  # , tabula
+import pytesseract
 import numpy as np
 
 
 debug = True
 imgout = 'crop_'
 extout = '.png'
-img2readtext = None
+tempimg = f'{imgout}temp{extout}'
 
 
 def group_h_lines(h_lines, thin_thresh):
@@ -124,7 +127,6 @@ def findcoord_v0(img):  # dùng cv2_inRange() rồi căn cứ vào contour có 4
     )
 
 def findcoord(img, th1, th2):
-    global img2readtext
     height, width = img.shape
     img2readtext = img.copy()
     img_blur = cv2.GaussianBlur(img, (3, 3), 0)
@@ -161,6 +163,7 @@ def findcoord(img, th1, th2):
         cropped = img[y:y + h, x:x + w]  # Cắt ảnh theo vùng đó
         img2readtext[y:y+h, x:x+w] = 0
         cv2.imwrite(f"{imgout}{i}{extout}", cropped)
+    cv2.imwrite(tempimg, img2readtext)
     if debug:
         combined = cv2.add(image_horizontal, image_vertical)
         cv2.drawContours(
@@ -183,20 +186,25 @@ def load_image(filename):
     return img_rgb
 
 # Hiển thị preview các ảnh đã chọn
-def show_selected_images(filenames):
+def show_selected_images(filenames):  # TODO improve
     images = [load_image(f) for f in filenames]
     return images
 
 def analyze_images(filenames):
-    global img2readtext
-    results = []
+    img_cv = cv2.imread(tempimg)
+    img2readtext = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+    freetext = pytesseract.image_to_string(img2readtext)  # TODO tùy chọn ngôn ngữ cho tesseract
+    textintable = ''
     for f in filenames:
         img = load_image(f)
-        h, w, _ = img.shape
-        results.append({"filename": f, "width": w, "height": h})
+        textintable = f"{pytesseract.image_to_string(img)}\n{textintable}"  # TODO tùy chọn ngôn ngữ cho tesseract 
+    jso = {
+        'text in table': textintable,
+        'free text': freetext,
+    }
     text = f"Đã phân tích {len(filenames)} ảnh."
     # TODO xóa các file tạm
-    return text, results
+    return text, jso
 
 # def findtable():
 #     # Đọc và trích xuất bảng từ PDF
