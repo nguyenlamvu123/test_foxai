@@ -5,6 +5,7 @@ import numpy as np
 debug = True
 imgout = 'crop_'
 extout = '.png'
+img2readtext = None
 
 
 def group_h_lines(h_lines, thin_thresh):
@@ -123,6 +124,9 @@ def findcoord_v0(img):  # dùng cv2_inRange() rồi căn cứ vào contour có 4
     )
 
 def findcoord(img, th1, th2):
+    global img2readtext
+    height, width = img.shape
+    img2readtext = img.copy()
     img_blur = cv2.GaussianBlur(img, (3, 3), 0)
 
     img_bin = cv2.Canny(
@@ -148,11 +152,14 @@ def findcoord(img, th1, th2):
     contours = cnts[0] if len(cnts) == 2 else cnts[1]
 
     output_images = list()
+    lim = height * width / 3
     for i, cnt in enumerate(contours):
+        curr = cv2.contourArea(cnt)
+        if curr > lim:
+            continue
         x, y, w, h = cv2.boundingRect(cnt)  # Lấy tọa độ khung chữ nhật quanh contour
         cropped = img[y:y + h, x:x + w]  # Cắt ảnh theo vùng đó
-        # img_rgb = cv2.cvtColor(cropped, cv2.COLOR_BGR2RGB)
-        # output_images.append(img_rgb)
+        img2readtext[y:y+h, x:x+w] = 0
         cv2.imwrite(f"{imgout}{i}{extout}", cropped)
     if debug:
         combined = cv2.add(image_horizontal, image_vertical)
@@ -181,12 +188,14 @@ def show_selected_images(filenames):
     return images
 
 def analyze_images(filenames):
+    global img2readtext
     results = []
     for f in filenames:
         img = load_image(f)
         h, w, _ = img.shape
         results.append({"filename": f, "width": w, "height": h})
     text = f"Đã phân tích {len(filenames)} ảnh."
+    # TODO xóa các file tạm
     return text, results
 
 # def findtable():
