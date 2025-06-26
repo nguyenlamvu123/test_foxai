@@ -8,11 +8,29 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.llms import LlamaCpp
 from langchain.chains import RetrievalQA
 
-debug = True
+
+debug = False
 imgout = 'crop_'
 extout = '.png'
-tempimg = f'{imgout}temp{extout}'
+current_dir = os.path.dirname(__file__)
+tempimg = os.path.join(current_dir, f'{imgout}temp{extout}')
 
+
+def downloadmodel():
+    import requests
+
+    # Link trực tiếp đến file .gguf trên Hugging Face
+    url = "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+    output_path = os.path.join(current_dir, "models", "mistral", "mistral-7b-instruct-v0.1.Q4_K_M.gguf")
+    if os.path.exists(output_path):
+        return
+
+    response = requests.get(url, stream=True)
+    with open(output_path, "wb") as f:
+        for chunk in response.iter_content(chunk_size=8192):
+            if chunk:
+                f.write(chunk)
+downloadmodel()
 
 def group_h_lines(h_lines, thin_thresh):
     new_h_lines = []
@@ -165,7 +183,7 @@ def findcoord(img, th1, th2, api=False):
         x, y, w, h = cv2.boundingRect(cnt)  # Lấy tọa độ khung chữ nhật quanh contour
         cropped = img[y:y + h, x:x + w]  # Cắt ảnh theo vùng đó
         img2readtext[y:y+h, x:x+w] = 0
-        imgname = f"{imgout}{i}{extout}"
+        imgname = os.path.join(current_dir, f"{imgout}{i}{extout}")
         filenames.append(imgname)
         cv2.imwrite(imgname, cropped)
     cv2.imwrite(tempimg, img2readtext)
@@ -183,7 +201,10 @@ def findcoord(img, th1, th2, api=False):
         print()
 
 def list_image_filenames():
-    return [file for file in os.listdir() if file.endswith(extout) and file.startswith(imgout)]
+    return [
+        os.path.join(current_dir, file) for file in os.listdir(current_dir)
+        if file.endswith(extout) and file.startswith(imgout)
+    ]
 
 # Đọc ảnh từ tên file
 def load_image(filename):
@@ -247,7 +268,7 @@ def load_json(path):
             documents.append(text)
     return documents
 
-def ingest_json_to_faiss(json_path, faiss_path="vector_store/faiss_index"):
+def ingest_json_to_faiss(json_path, faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
     texts = load_json(json_path)
     if len(texts) == 0:
         return
@@ -258,34 +279,12 @@ def ingest_json_to_faiss(json_path, faiss_path="vector_store/faiss_index"):
     vectordb = FAISS.from_documents(chunks, embeddings)
     vectordb.save_local(faiss_path)
 
-def get_retriever(faiss_path="vector_store/faiss_index"):
+def get_retriever(faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
     """tải một vector database FAISS đã được lưu trước đó, và tạo ra một đối tượng retriever để thực hiện tìm kiếm theo độ tương đồng"""
     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
     vectordb = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
     retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
     return retriever
-
-def get_qa_chain_llama():
-    llm = LlamaCpp(
-        model_path="models/mistral/mistral-7b-instruct-v0.1.Q4_K_M.gguf",
-        temperature=0.2,
-        max_tokens=512,
-        top_p=0.95,
-        n_ctx=2048,
-        verbose=False,
-        n_threads=1,  # TODO: change
-        n_batch=64
-    )
-
-    retriever = get_retriever()
-
-    chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        retriever=retriever,
-        return_source_documents=True
-    )
-
-    return chain
 
 
 if __name__ == '__main__':

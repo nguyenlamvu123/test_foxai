@@ -6,9 +6,6 @@ from typing import List
 import shutil
 import os
 
-# Giả sử các module này bạn đã viết sẵn (RAG + chunking + truy vấn)
-# from rag_pipeline import load_and_chunk_document, create_vector_store, list_documents
-# from rag_qa import answer_question
 from coordinate import cv2, list_documents, findcoord
 
 app = FastAPI()
