@@ -2,6 +2,11 @@ import os, json, cv2, datetime  # , tabula
 import pytesseract
 import numpy as np
 
+from langchain.text_splitter import CharacterTextSplitter
+from langchain.vectorstores import FAISS
+from langchain.embeddings import HuggingFaceEmbeddings
+from langchain.llms import LlamaCpp
+from langchain.chains import RetrievalQA
 
 debug = True
 imgout = 'crop_'
@@ -200,17 +205,20 @@ def analyze_images(filenames):
     for f in filenames:
         img = load_image(f)
         textintable = f"{pytesseract.image_to_string(img, lang='vie')}\n{textintable}"
-    jso = {
-        'text in table': textintable,
-        'free text': freetext,
-    }
+    jso = [
+        {
+            'text in table': textintable,
+            'free text': freetext,
+        }
+    ]
     text = f"Đã phân tích {len(filenames)} ảnh."
 
     now = datetime.datetime.now()
-    fn = now.strftime("%Y%m%d_%H%M%S")
-    with open(f"{fn}.csv", "w", encoding="utf-8") as f:
+    jsofile = f'{now.strftime("%Y%m%d_%H%M%S")}.csv'
+    with open(jsofile, "w", encoding="utf-8") as f:  # lưu dữ liệu đã trích xuất vào file trong local
         json.dump(jso, f, ensure_ascii=False, indent=4)
     # TODO xóa các file tạm
+    ingest_json_to_faiss(jsofile)
     return text, jso
 
 # def findtable():
@@ -228,6 +236,57 @@ def analyze_images(filenames):
 
 def list_documents():
     return [c for c in os.listdir() if c.endswith('.csv')]
+
+def load_json(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    documents = []
+    for item in data:
+        if isinstance(item, dict):
+            text = json.dumps(item, ensure_ascii=False)
+            documents.append(text)
+    return documents
+
+def ingest_json_to_faiss(json_path, faiss_path="vector_store/faiss_index"):
+    texts = load_json(json_path)
+    if len(texts) == 0:
+        return
+    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+    chunks = splitter.create_documents(texts)
+
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectordb = FAISS.from_documents(chunks, embeddings)
+    vectordb.save_local(faiss_path)
+
+def get_retriever(faiss_path="vector_store/faiss_index"):
+    """tải một vector database FAISS đã được lưu trước đó, và tạo ra một đối tượng retriever để thực hiện tìm kiếm theo độ tương đồng"""
+    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    vectordb = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
+    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+    return retriever
+
+def get_qa_chain_llama():
+    llm = LlamaCpp(
+        model_path="models/mistral/mistral-7b-instruct-v0.1.Q4_K_M.gguf",
+        temperature=0.2,
+        max_tokens=512,
+        top_p=0.95,
+        n_ctx=2048,
+        verbose=False,
+        n_threads=1,  # TODO: change
+        n_batch=64
+    )
+
+    retriever = get_retriever()
+
+    chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        retriever=retriever,
+        return_source_documents=True
+    )
+
+    return chain
+
 
 if __name__ == '__main__':
     img = cv2.imread(
