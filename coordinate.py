@@ -14,6 +14,10 @@ imgout = 'crop_'
 extout = '.png'
 current_dir = os.path.dirname(__file__)
 tempimg = os.path.join(current_dir, f'{imgout}temp{extout}')
+os.makedirs(os.path.join(current_dir, "models"), exist_ok=True)
+os.makedirs(os.path.join(current_dir, "models", "mistral"), exist_ok=True)
+os.makedirs(os.path.join(current_dir, "vector_store"), exist_ok=True)
+os.makedirs(os.path.join(current_dir, "vector_store", "faiss_index"), exist_ok=True)
 
 
 def downloadmodel():
@@ -21,6 +25,7 @@ def downloadmodel():
 
     # Link trực tiếp đến file .gguf trên Hugging Face
     url = "https://huggingface.co/TheBloke/Mistral-7B-Instruct-v0.1-GGUF/resolve/main/mistral-7b-instruct-v0.1.Q4_K_M.gguf"
+
     output_path = os.path.join(current_dir, "models", "mistral", "mistral-7b-instruct-v0.1.Q4_K_M.gguf")
     if os.path.exists(output_path):
         return

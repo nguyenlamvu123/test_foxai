@@ -3,18 +3,21 @@ from coordinate import LlamaCpp, get_retriever, RetrievalQA
 
 class ChatBot:
     def __init__(self):
-        self.chatbot()
+        self.qa_chain = self.get_qa_chain_llama()
 
     def chatbot(self):
-        qa_chain = self.get_qa_chain_llama()
         print("🤖 Chatbot RAG (LLAMA local) sẵn sàng. Gõ 'exit' để thoát.")
 
         while True:
             query = input("❓ Bạn: ")
             if query.lower() == 'exit':
                 break
-            result = qa_chain({"query": query})
+            result = self.qa_chain({"query": query})
             print("🤖 Bot:", result["result"])
+
+    def chatbot_gra(self, query):
+        result = self.qa_chain({"query": query})
+        return result["result"]
 
     def get_qa_chain_llama(self):
         llm = LlamaCpp(
@@ -39,4 +42,4 @@ class ChatBot:
         return chain
 
 if __name__ == "__main__":
-    ChatBot()
+    ChatBot().chatbot()

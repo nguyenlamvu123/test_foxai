@@ -1,6 +1,9 @@
 import gradio as gr
 from coordinate import *
+from chatbot___ import ChatBot
 
+
+c = ChatBot()
 
 def get_download_table():
     files = list_image_filenames()
@@ -33,6 +36,16 @@ def run_pipeline(img, th1, th2):
     #         output_images.append(img_rgb)
     # return output_images
 
+def tra_loi_cau_hoi(cau_hoi):
+    return c.chatbot_gra(cau_hoi)
+
+def analyze_images_(checkbox):
+    global c
+    text_out, json_out = analyze_images(checkbox)
+    c = ChatBot()
+    return text_out, json_out
+
+
 with gr.Blocks() as demo:
     with gr.Row():
         with gr.Column():
@@ -59,6 +72,14 @@ with gr.Blocks() as demo:
         text_out = gr.Textbox(label="Kết quả tóm tắt")
         json_out = gr.JSON(label="Kết quả chi tiết")
 
+    with gr.Row():
+        inp = gr.Textbox(label="Nhập câu hỏi")
+        btn = gr.Button("Hỏi")
+
+    out = gr.Textbox(label="Câu trả lời")
+
+    btn.click(fn=tra_loi_cau_hoi, inputs=inp, outputs=out)
+
     process_btn.click(
         fn=run_pipeline,
         inputs=(input_img, th1, th2),
@@ -68,6 +89,6 @@ with gr.Blocks() as demo:
     checkbox.change(fn=show_selected_images, inputs=checkbox, outputs=image_gallery)
     # output_images.select(fn=handle_selection, inputs=None, outputs=selected)
     # # Khi người dùng nhấn nút phân tích
-    analyze_btn.click(fn=analyze_images, inputs=checkbox, outputs=[text_out, json_out])
+    analyze_btn.click(fn=analyze_images_, inputs=checkbox, outputs=[text_out, json_out])
 
 demo.launch()
