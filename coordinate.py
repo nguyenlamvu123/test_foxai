@@ -8,12 +8,23 @@ from langchain.embeddings import HuggingFaceEmbeddings
 from langchain.llms import LlamaCpp
 from langchain.chains import RetrievalQA
 
+from vietocr.tool.predictor import Predictor
+from vietocr.tool.config import Cfg
+from PIL import Image
+
 
 debug = False
 imgout = 'crop_'
 extout = '.png'
 current_dir = os.path.dirname(__file__)
 tempimg = os.path.join(current_dir, f'{imgout}temp{extout}')
+
+lang, oem, psm = 'vie+eng', 1, 3
+
+config = Cfg.load_config_from_name('vgg_transformer')  # ('vgg_seq2seq')  #
+config['device'] = 'cpu'
+config['cnn']['pretrained'] = False  # tránh tải lại mô hình nếu đã có sẵn
+detector = Predictor(config)
 
 
 def downloadmodel():
@@ -182,7 +193,7 @@ def findcoord(img, th1, th2, api=False):
             continue
         x, y, w, h = cv2.boundingRect(cnt)  # Lấy tọa độ khung chữ nhật quanh contour
         cropped = img[y:y + h, x:x + w]  # Cắt ảnh theo vùng đó
-        img2readtext[y:y+h, x:x+w] = 0
+        img2readtext[y:y+h, x:x+w] = 255
         imgname = os.path.join(current_dir, f"{imgout}{i}{extout}")
         filenames.append(imgname)
         cv2.imwrite(imgname, cropped)
@@ -207,12 +218,20 @@ def list_image_filenames():
     ]
 
 # Đọc ảnh từ tên file
-def load_image(filename):
+def load_image(filename, vietocr=False):
     img = cv2.imread(filename)
-    img_rgb_ = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    # img_rgb = cv2.GaussianBlur(img_rgb_, (3, 3), 0)
-    img_rgb = cv2.convertScaleAbs(img_rgb_, alpha=1.5, beta=0)
-    return img_rgb
+    if vietocr:
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)  # vietocr
+        ret = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]  # vietocr
+    else:
+        img_rgb_ = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        ret = img_rgb_  # bỏ qua tiền xử lí ảnh
+        # # # blur = cv2.GaussianBlur(img_rgb_, (3, 3), 0)  # khử nhiễu
+        # # blur = cv2.convertScaleAbs(img_rgb_, alpha=1.5, beta=0)  # tăng độ tương phản
+        # # ret = cv2.resize(blur, None, fx=2, fy=2, interpolation=cv2.INTER_LINEAR)  # phóng to
+        # # # sharpen = cv2.GaussianBlur(ret, (0, 0), 3)  # làm nét sau phóng to
+        # # # sharpen = cv2.addWeighted(ret, 1.5, sharpen, -0.5, 0)
+    return ret
 
 # Hiển thị preview các ảnh đã chọn
 def show_selected_images(filenames):  # TODO improve
@@ -221,11 +240,11 @@ def show_selected_images(filenames):  # TODO improve
 
 def analyze_images(filenames):
     img2readtext = load_image(tempimg)
-    freetext = pytesseract.image_to_string(img2readtext, lang='vie')
+    freetext = tesser(img2readtext)
     textintable = ''
     for f in filenames:
-        img = load_image(f)
-        textintable = f"{pytesseract.image_to_string(img, lang='vie')}\n{textintable}"
+        img = load_image(f, vietocr=True)
+        textintable = f"{vieocr(img)}\n{textintable}"
     jso = [
         {
             'text in table': textintable,
@@ -254,6 +273,14 @@ def analyze_images(filenames):
 #
 #     # Lưu bảng thành file CSV nếu muốn
 #     tabula.convert_into(pdf_file, "output.csv", output_format="csv", pages='all')
+
+def tesser(img2readtext):
+    custom_config: str = f'--oem {oem} --psm {psm} -l {lang}'
+    return pytesseract.image_to_string(img2readtext, config=custom_config)
+
+def vieocr(thresh):
+    img2readtext = Image.fromarray(thresh)
+    return detector.predict(img2readtext)
 
 def list_documents():
     return [c for c in os.listdir() if c.endswith('.csv')]
