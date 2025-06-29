@@ -8,3 +8,6 @@ sentence-transformers
 llama-cpp-python
 tqdm
 pytesseract
+easyocr
+vietocr
+torchvision
