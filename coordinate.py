@@ -2,14 +2,14 @@ import os, json, cv2, datetime  # , tabula
 import pytesseract
 import numpy as np
 
-from langchain.text_splitter import CharacterTextSplitter
-from langchain.vectorstores import FAISS
-from langchain.embeddings import HuggingFaceEmbeddings
-from langchain.llms import LlamaCpp
-from langchain.chains import RetrievalQA
+# from langchain.text_splitter import CharacterTextSplitter
+# from langchain.vectorstores import FAISS
+# from langchain.embeddings import HuggingFaceEmbeddings
+# from langchain.llms import LlamaCpp
+# from langchain.chains import RetrievalQA
 
-from vietocr.tool.predictor import Predictor
-from vietocr.tool.config import Cfg
+# from vietocr.tool.predictor import Predictor
+# from vietocr.tool.config import Cfg
 from PIL import Image
 
 
@@ -21,10 +21,22 @@ tempimg = os.path.join(current_dir, f'{imgout}temp{extout}')
 
 lang, oem, psm = 'vie+eng', 1, 3
 
-config = Cfg.load_config_from_name('vgg_transformer')  # ('vgg_seq2seq')  #
-config['device'] = 'cpu'
-config['cnn']['pretrained'] = False  # tránh tải lại mô hình nếu đã có sẵn
-detector = Predictor(config)
+# config = Cfg.load_config_from_name('vgg_transformer')  # ('vgg_seq2seq')  #
+# config['device'] = 'cpu'
+# config['cnn']['pretrained'] = False  # tránh tải lại mô hình nếu đã có sẵn
+# detector = Predictor(config)
+
+expectedimg = '3.png'
+expectedcsv = '20250630_143706.csv'
+expecteddir = 'temp_results'
+expectedfile = os.path.join(expecteddir, expectedimg)
+expect_csv = os.path.join(expecteddir, expectedcsv)
+expected_output_img = tuple(
+    cr_im for cr_im in os.listdir(expecteddir) if cr_im.startswith(imgout) and cr_im.endswith(extout)
+)
+
+with open(expect_csv, 'r', encoding='utf-8') as file:
+    expected_jso = json.load(file)
 
 
 def downloadmodel():
@@ -41,7 +53,7 @@ def downloadmodel():
         for chunk in response.iter_content(chunk_size=8192):
             if chunk:
                 f.write(chunk)
-downloadmodel()
+# downloadmodel()
 
 def group_h_lines(h_lines, thin_thresh):
     new_h_lines = []
@@ -258,7 +270,7 @@ def analyze_images(filenames):
     with open(jsofile, "w", encoding="utf-8") as f:  # lưu dữ liệu đã trích xuất vào file trong local
         json.dump(jso, f, ensure_ascii=False, indent=4)
     # TODO xóa các file tạm
-    ingest_json_to_faiss(jsofile)
+    # ingest_json_to_faiss(jsofile)
     return text, jso
 
 # def findtable():
@@ -278,9 +290,9 @@ def tesser(img2readtext):
     custom_config: str = f'--oem {oem} --psm {psm} -l {lang}'
     return pytesseract.image_to_string(img2readtext, config=custom_config)
 
-def vieocr(thresh):
-    img2readtext = Image.fromarray(thresh)
-    return detector.predict(img2readtext)
+# def vieocr(thresh):
+#     img2readtext = Image.fromarray(thresh)
+#     return detector.predict(img2readtext)
 
 def list_documents():
     return [c for c in os.listdir() if c.endswith('.csv')]
@@ -295,23 +307,23 @@ def load_json(path):
             documents.append(text)
     return documents
 
-def ingest_json_to_faiss(json_path, faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
-    texts = load_json(json_path)
-    if len(texts) == 0:
-        return
-    splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    chunks = splitter.create_documents(texts)
-
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectordb = FAISS.from_documents(chunks, embeddings)
-    vectordb.save_local(faiss_path)
-
-def get_retriever(faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
-    """tải một vector database FAISS đã được lưu trước đó, và tạo ra một đối tượng retriever để thực hiện tìm kiếm theo độ tương đồng"""
-    embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    vectordb = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
-    retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-    return retriever
+# def ingest_json_to_faiss(json_path, faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
+#     texts = load_json(json_path)
+#     if len(texts) == 0:
+#         return
+#     splitter = CharacterTextSplitter(chunk_size=500, chunk_overlap=50)
+#     chunks = splitter.create_documents(texts)
+#
+#     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+#     vectordb = FAISS.from_documents(chunks, embeddings)
+#     vectordb.save_local(faiss_path)
+#
+# def get_retriever(faiss_path=os.path.join(current_dir, "vector_store", "faiss_index")):
+#     """tải một vector database FAISS đã được lưu trước đó, và tạo ra một đối tượng retriever để thực hiện tìm kiếm theo độ tương đồng"""
+#     embeddings = HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+#     vectordb = FAISS.load_local(faiss_path, embeddings, allow_dangerous_deserialization=True)
+#     retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+#     return retriever
 
 
 if __name__ == '__main__':
